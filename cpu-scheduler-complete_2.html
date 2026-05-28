@@ -1,0 +1,2463 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CPU Scheduling Simulator | OS Lab</title>
+  <meta name="description" content="Interactive CPU Scheduling Simulator for learning Operating System concepts — FCFS, SJF, Priority, Round Robin." />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <!-- jsPDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <!-- jsPDF AutoTable -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
+  <style>
+/* ═══════════════════════════════════════════════
+   CPU Scheduling Simulator — style.css
+   Aesthetic: Cyberpunk Terminal Dashboard
+   ═══════════════════════════════════════════════ */
+
+/* ── CSS Variables ── */
+:root {
+  --cyan: #00e5ff;
+  --cyan-dim: rgba(0,229,255,.15);
+  --cyan-glow: 0 0 20px rgba(0,229,255,.4);
+  --orange: #ff6b35;
+  --orange-dim: rgba(255,107,53,.15);
+  --green: #00ff88;
+  --purple: #a855f7;
+  --red: #ff4757;
+  --yellow: #ffd32a;
+
+  --bg: #0a0c14;
+  --bg-2: #0f1220;
+  --bg-3: #141826;
+  --surface: rgba(255,255,255,.04);
+  --surface-hover: rgba(255,255,255,.07);
+  --border: rgba(255,255,255,.08);
+  --border-active: rgba(0,229,255,.3);
+
+  --text: #e8eaf6;
+  --text-muted: #7b82a0;
+  --text-dim: #4a5068;
+
+  --font-mono: 'Space Mono', monospace;
+  --font-body: 'DM Sans', sans-serif;
+
+  --radius: 12px;
+  --radius-lg: 20px;
+  --radius-sm: 8px;
+  --transition: .2s cubic-bezier(.4,0,.2,1);
+  --shadow: 0 8px 32px rgba(0,0,0,.4);
+  --shadow-lg: 0 20px 60px rgba(0,0,0,.6);
+}
+
+[data-theme="light"] {
+  --bg: #f0f2fa;
+  --bg-2: #e8eaf6;
+  --bg-3: #ffffff;
+  --surface: rgba(255,255,255,.7);
+  --surface-hover: rgba(255,255,255,.9);
+  --border: rgba(0,0,0,.1);
+  --border-active: rgba(0,160,200,.4);
+  --text: #1a1e30;
+  --text-muted: #555e80;
+  --text-dim: #aab0c4;
+  --shadow: 0 8px 32px rgba(0,0,0,.12);
+  --shadow-lg: 0 20px 60px rgba(0,0,0,.2);
+}
+
+/* ── Reset & Base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  overflow-x: hidden;
+  transition: background var(--transition), color var(--transition);
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-2); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+/* ── Typography ── */
+h1,h2,h3,h4 { font-family: var(--font-mono); line-height: 1.2; }
+code { font-family: var(--font-mono); font-size: .85em; color: var(--cyan); }
+a { text-decoration: none; color: inherit; }
+img { max-width: 100%; }
+
+/* ── Container ── */
+.container { max-width: 1280px; margin: 0 auto; padding: 0 1.5rem; }
+
+/* ── Utility ── */
+.hidden { display: none !important; }
+
+/* ═══════════════════════════════════════════
+   NAVBAR
+   ═══════════════════════════════════════════ */
+.navbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  padding: .9rem 0;
+  background: rgba(10,12,20,.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition), box-shadow var(--transition);
+}
+.navbar.scrolled { box-shadow: 0 4px 20px rgba(0,0,0,.4); }
+[data-theme="light"] .navbar { background: rgba(240,242,250,.9); }
+
+.nav-container {
+  max-width: 1280px; margin: 0 auto;
+  padding: 0 1.5rem;
+  display: flex; align-items: center; gap: 2rem;
+}
+
+.nav-brand {
+  display: flex; align-items: center; gap: .6rem;
+  font-family: var(--font-mono); font-size: 1.2rem; font-weight: 700;
+  color: var(--text);
+}
+.brand-icon { color: var(--cyan); font-size: 1.4rem; }
+.brand-text em { color: var(--cyan); font-style: normal; }
+
+.nav-links {
+  list-style: none; display: flex; align-items: center; gap: .25rem;
+  margin-left: auto;
+}
+.nav-link {
+  padding: .45rem .9rem; border-radius: 6px;
+  font-size: .9rem; font-weight: 500; color: var(--text-muted);
+  transition: all var(--transition);
+}
+.nav-link:hover, .nav-link.active {
+  color: var(--cyan); background: var(--cyan-dim);
+}
+
+.nav-actions { display: flex; align-items: center; gap: .5rem; }
+
+.theme-toggle {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: .45rem .65rem;
+  cursor: pointer; font-size: 1rem; transition: all var(--transition);
+}
+.theme-toggle:hover { border-color: var(--cyan); background: var(--cyan-dim); }
+
+.hamburger {
+  display: none; flex-direction: column; gap: 5px;
+  background: none; border: none; cursor: pointer; padding: 6px;
+}
+.hamburger span {
+  width: 22px; height: 2px; background: var(--text);
+  border-radius: 2px; transition: all var(--transition);
+}
+
+/* ═══════════════════════════════════════════
+   HERO
+   ═══════════════════════════════════════════ */
+.hero {
+  position: relative; min-height: 100vh;
+  display: flex; align-items: center;
+  padding: 100px 5% 60px;
+  overflow: hidden;
+}
+
+.hero-bg {
+  position: absolute; inset: 0; z-index: 0;
+  background: radial-gradient(ellipse 80% 60% at 60% 40%, rgba(0,229,255,.06) 0%, transparent 70%),
+              radial-gradient(ellipse 50% 50% at 10% 80%, rgba(255,107,53,.05) 0%, transparent 60%);
+}
+.grid-overlay {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+[data-theme="light"] .grid-overlay {
+  background-image:
+    linear-gradient(rgba(0,0,0,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,0,0,.04) 1px, transparent 1px);
+}
+
+.orb {
+  position: absolute; border-radius: 50%;
+  filter: blur(80px); opacity: .4;
+  animation: floatOrb 8s ease-in-out infinite;
+}
+.orb-1 { width:400px;height:400px;background:rgba(0,229,255,.12);top:-100px;right:10%; }
+.orb-2 { width:300px;height:300px;background:rgba(255,107,53,.1);bottom:10%;left:5%;animation-delay:-3s; }
+.orb-3 { width:200px;height:200px;background:rgba(168,85,247,.1);top:40%;left:30%;animation-delay:-6s; }
+@keyframes floatOrb { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-30px) scale(1.05)} }
+
+.hero-content { position:relative;z-index:1;max-width:560px; }
+.hero-visual   { position:relative;z-index:1;margin-left:auto;flex-shrink:0; }
+
+.hero-badge {
+  display: inline-flex; align-items: center; gap: .5rem;
+  background: var(--cyan-dim); border: 1px solid rgba(0,229,255,.3);
+  border-radius: 30px; padding: .35rem 1rem;
+  font-size: .82rem; color: var(--cyan);
+  font-family: var(--font-mono); margin-bottom: 1.5rem;
+}
+.pulse-dot {
+  width:8px; height:8px; background:var(--cyan); border-radius:50%;
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%,100%{box-shadow:0 0 0 0 rgba(0,229,255,.6)}
+  50%{box-shadow:0 0 0 8px rgba(0,229,255,0)}
+}
+
+.hero-title {
+  font-size: clamp(2.2rem,5vw,3.8rem); font-weight: 700;
+  line-height: 1.1; margin-bottom: 1.2rem; color: var(--text);
+}
+.hero-accent {
+  font-style: normal; color: var(--cyan);
+  text-shadow: var(--cyan-glow);
+}
+
+.hero-subtitle {
+  font-size: 1.1rem; color: var(--text-muted); margin-bottom: 2rem;
+  line-height: 1.7; max-width: 480px;
+}
+
+.hero-cta { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 3rem; }
+
+.hero-stats {
+  display: flex; gap: 2rem; flex-wrap: wrap;
+  padding-top: 1.5rem; border-top: 1px solid var(--border);
+}
+.hero-stat { text-align: center; }
+.stat-num { display: block; font-family: var(--font-mono); font-size: 1.6rem; font-weight: 700; color: var(--cyan); }
+.stat-label { font-size: .78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; }
+
+/* Terminal Card */
+.terminal-card {
+  width: 420px; max-width: 100%;
+  background: rgba(15,18,32,.9); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden;
+  box-shadow: var(--shadow-lg), var(--cyan-glow);
+  animation: terminalSlide .8s cubic-bezier(.4,0,.2,1) both;
+}
+@keyframes terminalSlide { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
+
+[data-theme="light"] .terminal-card { background: rgba(248,250,255,.95); }
+
+.terminal-header {
+  display: flex; align-items: center; gap: 6px;
+  padding: .75rem 1rem;
+  background: rgba(255,255,255,.03);
+  border-bottom: 1px solid var(--border);
+}
+[data-theme="light"] .terminal-header { background: rgba(0,0,0,.04); }
+.dot { width:12px;height:12px;border-radius:50%; }
+.dot-red{background:#ff5f56} .dot-yellow{background:#ffbd2e} .dot-green{background:#27c93f}
+.terminal-title { font-family: var(--font-mono); font-size:.8rem; color:var(--text-muted); margin-left:auto; }
+
+.terminal-body { padding: 1.2rem; display: flex; flex-direction: column; gap: .5rem; }
+.t-line { font-family: var(--font-mono); font-size: .82rem; color: var(--text-muted); }
+.t-prompt { color: var(--cyan); margin-right: .5rem; }
+.t-ok { color: var(--green); }
+.t-info { color: var(--orange); }
+.cursor-blink { animation: blink 1s step-end infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* ═══════════════════════════════════════════
+   BUTTONS
+   ═══════════════════════════════════════════ */
+.btn {
+  display: inline-flex; align-items: center; gap: .5rem;
+  padding: .65rem 1.4rem; border-radius: 8px; border: none;
+  font-family: var(--font-body); font-size: .9rem; font-weight: 600;
+  cursor: pointer; transition: all var(--transition);
+  position: relative; overflow: hidden;
+}
+.btn::after {
+  content: ''; position: absolute; inset: 0;
+  background: rgba(255,255,255,.1); opacity: 0;
+  transition: opacity var(--transition);
+}
+.btn:hover::after { opacity: 1; }
+.btn:active { transform: scale(.97); }
+
+.btn-primary {
+  background: var(--cyan); color: #0a0c14;
+  box-shadow: 0 4px 20px rgba(0,229,255,.3);
+}
+.btn-primary:hover { box-shadow: 0 6px 28px rgba(0,229,255,.5); }
+
+.btn-accent {
+  background: var(--orange); color: #0a0c14;
+  box-shadow: 0 4px 20px rgba(255,107,53,.3);
+}
+.btn-accent:hover { box-shadow: 0 6px 28px rgba(255,107,53,.5); }
+
+.btn-ghost {
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-dim); }
+
+.btn-danger {
+  background: rgba(255,71,87,.15); color: var(--red);
+  border: 1px solid rgba(255,71,87,.3);
+}
+.btn-danger:hover { background: rgba(255,71,87,.25); }
+
+.btn-sm { padding: .5rem 1rem; font-size: .85rem; }
+.btn-xs { padding: .35rem .75rem; font-size: .78rem; }
+
+.btn:disabled {
+  opacity: .4; cursor: not-allowed; pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════
+   SECTIONS
+   ═══════════════════════════════════════════ */
+.section { padding: 100px 0; }
+.section-header { text-align: center; margin-bottom: 3.5rem; }
+.section-tag {
+  font-family: var(--font-mono); font-size: .8rem; color: var(--cyan);
+  letter-spacing: .1em; display: block; margin-bottom: .75rem;
+}
+.section-title { font-size: clamp(1.8rem,3vw,2.5rem); font-weight: 700; margin-bottom: .75rem; }
+.section-subtitle { color: var(--text-muted); font-size: 1.05rem; max-width: 560px; margin: 0 auto; }
+
+/* ═══════════════════════════════════════════
+   GLASS CARD
+   ═══════════════════════════════════════════ */
+.glass-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  backdrop-filter: blur(10px);
+  transition: border-color var(--transition), box-shadow var(--transition);
+  margin-bottom: 1.25rem;
+}
+.glass-card:hover { border-color: var(--border-active); }
+
+.card-title {
+  font-size: 1rem; font-weight: 700;
+  margin-bottom: 1.25rem; color: var(--text);
+  display: flex; align-items: center; gap: .5rem;
+  flex-wrap: wrap;
+}
+.card-icon { color: var(--cyan); }
+
+/* ═══════════════════════════════════════════
+   FORMS
+   ═══════════════════════════════════════════ */
+.form-group { margin-bottom: 1rem; flex: 1; min-width: 0; }
+.form-row { display: flex; gap: 1rem; }
+.form-label {
+  display: block; font-size: .82rem; font-weight: 600;
+  color: var(--text-muted); margin-bottom: .4rem;
+  text-transform: uppercase; letter-spacing: .06em;
+}
+.hint { font-weight: 400; color: var(--text-dim); text-transform: none; }
+
+.form-control {
+  width: 100%; padding: .6rem .9rem;
+  background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text);
+  font-family: var(--font-body); font-size: .9rem;
+  transition: all var(--transition); outline: none;
+}
+.form-control:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(0,229,255,.1); }
+.form-control::placeholder { color: var(--text-dim); }
+.form-control.error { border-color: var(--red); }
+.form-control option { background: var(--bg-2); }
+
+.form-error {
+  font-size: .82rem; color: var(--red);
+  padding: .5rem; border-radius: 6px;
+  background: rgba(255,71,87,.08); margin-bottom: .75rem;
+}
+
+.form-actions { display: flex; gap: .75rem; flex-wrap: wrap; }
+
+.search-input {
+  padding: .4rem .75rem;
+  background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text);
+  font-size: .85rem; outline: none; min-width: 0; flex: 1;
+  max-width: 160px; transition: all var(--transition);
+}
+.search-input:focus { border-color: var(--cyan); }
+
+/* ═══════════════════════════════════════════
+   ABOUT — ALGORITHM CARDS
+   ═══════════════════════════════════════════ */
+.about-section { background: var(--bg-2); }
+[data-theme="light"] .about-section { background: var(--bg-2); }
+
+.algo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.algo-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 1.75rem;
+  transition: all .3s ease; cursor: default;
+  animation: fadeUp .5s both;
+}
+.algo-card:hover {
+  border-color: var(--border-active);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0,229,255,.08);
+}
+@keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+
+.algo-card-header {
+  display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem;
+}
+.algo-card-icon {
+  width: 44px; height: 44px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem; flex-shrink: 0;
+}
+.algo-card-name { font-family: var(--font-mono); font-size: .95rem; font-weight: 700; }
+.algo-card-full { font-size: .8rem; color: var(--text-muted); }
+
+.algo-card-desc { font-size: .88rem; color: var(--text-muted); line-height: 1.7; margin-bottom: 1rem; }
+
+.algo-card-meta {
+  display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem;
+}
+.meta-tag {
+  font-size: .75rem; padding: .2rem .6rem; border-radius: 30px;
+  border: 1px solid var(--border); color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.algo-pros-cons { display: flex; gap: .75rem; }
+.pros, .cons { flex: 1; }
+.pros h5, .cons h5 {
+  font-size: .75rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .08em;
+  margin-bottom: .4rem;
+}
+.pros h5 { color: var(--green); }
+.cons h5 { color: var(--red); }
+.pros li, .cons li { font-size: .8rem; color: var(--text-muted); list-style: none; padding-left: 1rem; position: relative; margin-bottom: .2rem; }
+.pros li::before { content: '✓'; position: absolute; left: 0; color: var(--green); }
+.cons li::before { content: '✗'; position: absolute; left: 0; color: var(--red); }
+
+/* ═══════════════════════════════════════════
+   SIMULATOR LAYOUT
+   ═══════════════════════════════════════════ */
+.sim-layout {
+  display: grid; grid-template-columns: 380px 1fr;
+  gap: 1.5rem; align-items: start;
+}
+
+.sim-panel { position: relative; }
+.panel-left { position: sticky; top: 80px; }
+
+/* ═══════════════════════════════════════════
+   PROCESS TABLE
+   ═══════════════════════════════════════════ */
+.table-toolbar {
+  display: flex; align-items: center; gap: .75rem;
+  flex-wrap: wrap; margin-bottom: 1rem;
+}
+.process-count {
+  font-size: .75rem; background: var(--cyan-dim); color: var(--cyan);
+  border: 1px solid rgba(0,229,255,.3); border-radius: 30px;
+  padding: .15rem .6rem; font-family: var(--font-mono);
+}
+
+.table-wrapper { overflow-x: auto; margin: 0 -1.5rem; padding: 0 1.5rem; }
+
+.process-table, .results-table, .comparison-table {
+  width: 100%; border-collapse: collapse; font-size: .85rem;
+  white-space: nowrap;
+}
+.process-table th, .results-table th, .comparison-table th {
+  font-family: var(--font-mono); font-size: .75rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .06em;
+  color: var(--text-muted); padding: .6rem .75rem;
+  border-bottom: 1px solid var(--border); text-align: left;
+}
+.process-table td, .results-table td, .comparison-table td {
+  padding: .6rem .75rem; border-bottom: 1px solid rgba(255,255,255,.04);
+  color: var(--text); transition: background var(--transition);
+  vertical-align: middle;
+}
+.process-table tr:last-child td, .results-table tr:last-child td { border-bottom: none; }
+.process-table tbody tr:hover td, .results-table tbody tr:hover td {
+  background: var(--surface-hover);
+}
+.process-table .empty-row td {
+  text-align: center; color: var(--text-dim); font-size: .85rem;
+  padding: 2rem;
+}
+
+.process-table .filtered-hidden { display: none; }
+
+.btn-icon-sm {
+  background: none; border: 1px solid var(--border);
+  border-radius: 5px; padding: .25rem .5rem;
+  cursor: pointer; font-size: .8rem; color: var(--text-muted);
+  transition: all var(--transition);
+}
+.btn-icon-sm:hover { background: var(--surface-hover); }
+.btn-edit:hover { color: var(--cyan); border-color: var(--cyan); }
+.btn-delete:hover { color: var(--red); border-color: var(--red); }
+
+.table-actions {
+  display: flex; gap: .5rem; flex-wrap: wrap;
+  margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);
+}
+
+/* Sim Controls */
+.sim-controls { display: flex; gap: .75rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.speed-control { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
+.speed-slider {
+  -webkit-appearance: none; width: 120px; height: 4px;
+  background: var(--border); border-radius: 2px; outline: none;
+  transition: all var(--transition); flex-shrink: 0;
+}
+.speed-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px;
+  background: var(--cyan); border-radius: 50%; cursor: pointer;
+  box-shadow: 0 0 8px rgba(0,229,255,.5);
+}
+#speedLabel { font-family: var(--font-mono); font-size: .8rem; color: var(--cyan); }
+
+/* ═══════════════════════════════════════════
+   GANTT CHART
+   ═══════════════════════════════════════════ */
+.gantt-card { overflow: hidden; }
+.algo-badge {
+  margin-left: auto;
+  font-family: var(--font-mono); font-size: .75rem;
+  background: var(--cyan-dim); color: var(--cyan);
+  border: 1px solid rgba(0,229,255,.3);
+  border-radius: 30px; padding: .2rem .7rem;
+}
+
+.gantt-placeholder {
+  text-align: center; padding: 3rem 1rem; color: var(--text-dim);
+}
+.placeholder-icon { font-size: 2.5rem; margin-bottom: .75rem; }
+
+.gantt-container {
+  overflow-x: auto; min-height: 60px;
+  padding-bottom: .5rem;
+}
+.gantt-row {
+  display: flex; align-items: stretch;
+  height: 48px; margin-bottom: 6px; gap: 2px;
+  min-width: max-content;
+}
+.gantt-block {
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 6px; font-family: var(--font-mono); font-size: .75rem;
+  font-weight: 700; color: #0a0c14; cursor: default;
+  transition: all .2s ease; position: relative;
+  min-width: 24px; overflow: hidden;
+}
+.gantt-block:hover { transform: scaleY(1.08); z-index: 2; box-shadow: 0 4px 16px rgba(0,0,0,.4); }
+.gantt-block.idle-block {
+  background: rgba(255,255,255,.06); color: var(--text-dim);
+  border: 1px dashed var(--border);
+}
+.gantt-block .block-label { font-size: .7rem; }
+.gantt-block-tooltip {
+  display: none; position: absolute; bottom: 110%; left: 50%;
+  transform: translateX(-50%); background: var(--bg-3);
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: .4rem .75rem; white-space: nowrap; font-size: .75rem;
+  z-index: 10; pointer-events: none;
+}
+.gantt-block:hover .gantt-block-tooltip { display: block; }
+
+.gantt-timeline {
+  display: flex; font-family: var(--font-mono); font-size: .7rem;
+  color: var(--text-dim); padding-top: .25rem;
+  overflow-x: auto; min-width: max-content;
+}
+.gantt-tick { display: flex; flex-direction: column; align-items: flex-start; }
+.gantt-tick-mark { width: 1px; height: 6px; background: var(--text-dim); }
+
+/* ═══════════════════════════════════════════
+   STATS GRID
+   ═══════════════════════════════════════════ */
+.stats-grid {
+  display: grid; grid-template-columns: repeat(4,1fr); gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.1rem;
+  display: flex; align-items: center; gap: .9rem;
+  transition: all var(--transition);
+}
+.stat-card:hover { border-color: var(--border-active); }
+.stat-icon { font-size: 1.5rem; }
+.stat-value {
+  font-family: var(--font-mono); font-size: 1.25rem; font-weight: 700;
+  color: var(--cyan);
+}
+.stat-name { font-size: .75rem; color: var(--text-muted); margin-top: .1rem; }
+
+/* ═══════════════════════════════════════════
+   RESULTS
+   ═══════════════════════════════════════════ */
+.results-header {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: .75rem; margin-bottom: 1.25rem;
+}
+.results-actions { display: flex; gap: .5rem; }
+
+.results-table .wt-cell { color: var(--orange); font-family: var(--font-mono); }
+.results-table .tat-cell { color: var(--cyan); font-family: var(--font-mono); }
+.results-table .ct-cell { color: var(--green); font-family: var(--font-mono); }
+.results-table .rt-cell { color: var(--purple); font-family: var(--font-mono); }
+
+.priority-col, .priority-only { display: none; }
+.show-priority .priority-col { display: table-cell; }
+.show-priority .priority-only { display: flex; }
+
+/* ═══════════════════════════════════════════
+   CHARTS
+   ═══════════════════════════════════════════ */
+.charts-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;
+}
+.chart-wrapper {
+  position: relative; min-height: 200px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ═══════════════════════════════════════════
+   STEP MODE
+   ═══════════════════════════════════════════ */
+.step-counter {
+  font-family: var(--font-mono); font-size: .85rem;
+  color: var(--text-muted); margin-bottom: .75rem;
+}
+.step-detail {
+  font-size: .9rem; color: var(--text); line-height: 1.6;
+  margin-bottom: 1rem;
+}
+.step-progress {
+  height: 4px; background: var(--border); border-radius: 2px; overflow: hidden;
+}
+.step-progress-bar {
+  height: 100%; background: var(--cyan); border-radius: 2px;
+  transition: width .4s ease;
+}
+
+/* ═══════════════════════════════════════════
+   LOADING OVERLAY
+   ═══════════════════════════════════════════ */
+.loading-overlay {
+  position: absolute; inset: 0; z-index: 50;
+  background: rgba(10,12,20,.85);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  border-radius: var(--radius-lg); gap: 1rem;
+  font-family: var(--font-mono); color: var(--cyan);
+  backdrop-filter: blur(4px);
+}
+.loading-spinner {
+  width: 40px; height: 40px;
+  border: 3px solid var(--border);
+  border-top-color: var(--cyan);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ═══════════════════════════════════════════
+   HISTORY
+   ═══════════════════════════════════════════ */
+.history-section { background: var(--bg-2); }
+.history-toolbar {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 1.5rem;
+}
+.history-toolbar span { font-family: var(--font-mono); font-size: .85rem; color: var(--text-muted); }
+
+.history-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(300px,1fr));
+  gap: 1.25rem;
+}
+.history-empty {
+  grid-column: 1/-1; text-align: center;
+  padding: 3rem; color: var(--text-dim); font-family: var(--font-mono);
+}
+.history-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.25rem;
+  cursor: pointer; transition: all var(--transition);
+  animation: fadeUp .3s both;
+}
+.history-card:hover { border-color: var(--border-active); transform: translateY(-2px); }
+.history-card-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: .75rem;
+}
+.history-card-algo {
+  font-family: var(--font-mono); font-size: .8rem;
+  background: var(--cyan-dim); color: var(--cyan);
+  border-radius: 30px; padding: .2rem .65rem;
+  border: 1px solid rgba(0,229,255,.25);
+}
+.history-card-date { font-size: .75rem; color: var(--text-dim); }
+.history-card-stats {
+  display: grid; grid-template-columns: 1fr 1fr; gap: .5rem;
+  margin-bottom: .75rem;
+}
+.hstat { font-family: var(--font-mono); font-size: .8rem; }
+.hstat span { color: var(--text-muted); }
+.history-card-actions { display: flex; gap: .5rem; }
+
+/* ═══════════════════════════════════════════
+   COMPARISON TABLE
+   ═══════════════════════════════════════════ */
+.comparison-section { }
+.comparison-table-wrap { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.comparison-table thead tr { background: rgba(0,229,255,.05); }
+.comparison-table tbody tr:hover td { background: var(--surface); }
+
+.algo-tag {
+  font-family: var(--font-mono); font-size: .75rem; font-weight: 700;
+  padding: .25rem .7rem; border-radius: 6px; display: inline-block;
+}
+.algo-tag.fcfs      { background:rgba(0,229,255,.15); color:var(--cyan); }
+.algo-tag.sjf       { background:rgba(0,255,136,.15); color:var(--green); }
+.algo-tag.sjfp      { background:rgba(168,85,247,.15); color:var(--purple); }
+.algo-tag.priority  { background:rgba(255,107,53,.15); color:var(--orange); }
+.algo-tag.rr        { background:rgba(255,211,42,.15); color:var(--yellow); }
+
+.badge {
+  font-size: .72rem; font-family: var(--font-mono);
+  padding: .15rem .55rem; border-radius: 4px; display: inline-block;
+}
+.badge.yes     { background:rgba(255,71,87,.15); color:var(--red); }
+.badge.no      { background:rgba(0,255,136,.15); color:var(--green); }
+.badge.mixed   { background:rgba(255,211,42,.15); color:var(--yellow); }
+.badge.low     { background:rgba(0,255,136,.15); color:var(--green); }
+.badge.med     { background:rgba(255,211,42,.15); color:var(--yellow); }
+.badge.high    { background:rgba(255,71,87,.15); color:var(--red); }
+
+/* ═══════════════════════════════════════════
+   FAQ
+   ═══════════════════════════════════════════ */
+.faq-section { background: var(--bg-2); }
+.faq-list { max-width: 820px; margin: 0 auto; }
+.faq-item {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  margin-bottom: .75rem; overflow: hidden;
+  transition: border-color var(--transition);
+}
+.faq-item.open { border-color: var(--border-active); }
+.faq-question {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1.1rem 1.25rem; cursor: pointer;
+  font-weight: 600; font-size: .95rem;
+  background: var(--surface); transition: background var(--transition);
+  list-style: none;
+}
+.faq-question:hover { background: var(--surface-hover); }
+.faq-arrow { font-size: .85rem; transition: transform .3s ease; }
+.faq-item.open .faq-arrow { transform: rotate(90deg); }
+.faq-answer {
+  max-height: 0; overflow: hidden;
+  transition: max-height .35s ease, padding .35s ease;
+  padding: 0 1.25rem;
+  font-size: .9rem; color: var(--text-muted); line-height: 1.7;
+}
+.faq-item.open .faq-answer {
+  max-height: 300px; padding: 1rem 1.25rem;
+}
+
+/* ═══════════════════════════════════════════
+   FOOTER
+   ═══════════════════════════════════════════ */
+.footer { background: var(--bg-2); border-top: 1px solid var(--border); padding: 4rem 0 2rem; }
+.footer-grid {
+  display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 3rem;
+  margin-bottom: 3rem;
+}
+.footer-brand p { font-size: .88rem; color: var(--text-muted); line-height: 1.7; }
+.footer-links h4 { font-size: .85rem; font-weight: 700; margin-bottom: 1rem; color: var(--text); }
+.footer-links ul { list-style: none; }
+.footer-links li { margin-bottom: .5rem; }
+.footer-links a { font-size: .85rem; color: var(--text-muted); transition: color var(--transition); }
+.footer-links a:hover { color: var(--cyan); }
+
+.footer-bottom {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 1rem;
+  padding-top: 2rem; border-top: 1px solid var(--border);
+}
+.footer-bottom p { font-size: .83rem; color: var(--text-dim); }
+.social-links { display: flex; gap: .75rem; }
+.social-link {
+  width: 36px; height: 36px; border-radius: 8px;
+  background: var(--surface); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted); transition: all var(--transition);
+}
+.social-link:hover { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-dim); }
+
+/* ═══════════════════════════════════════════
+   MODAL
+   ═══════════════════════════════════════════ */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 2000;
+  background: rgba(0,0,0,.7); backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 1rem;
+}
+.modal {
+  width: 100%; max-width: 440px;
+  animation: modalIn .25s cubic-bezier(.4,0,.2,1);
+}
+@keyframes modalIn { from{opacity:0;transform:scale(.95)} to{opacity:1;transform:scale(1)} }
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+.modal-header h3 { font-size: 1.1rem; }
+.modal-close {
+  background: none; border: none; font-size: 1.1rem;
+  color: var(--text-muted); cursor: pointer;
+  padding: .25rem .4rem; border-radius: 4px;
+  transition: all var(--transition);
+}
+.modal-close:hover { color: var(--red); }
+.modal-footer {
+  display: flex; justify-content: flex-end; gap: .75rem;
+  margin-top: 1.25rem;
+}
+
+/* ═══════════════════════════════════════════
+   TOAST
+   ═══════════════════════════════════════════ */
+.toast-container {
+  position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 3000;
+  display: flex; flex-direction: column; gap: .5rem;
+}
+.toast {
+  background: var(--bg-3); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: .75rem 1.25rem;
+  font-size: .88rem; color: var(--text);
+  box-shadow: var(--shadow);
+  animation: toastIn .3s ease, toastOut .3s .2s ease forwards;
+  display: flex; align-items: center; gap: .6rem;
+  max-width: 300px;
+}
+.toast.success { border-color: rgba(0,255,136,.3); }
+.toast.error { border-color: rgba(255,71,87,.3); }
+.toast.info { border-color: rgba(0,229,255,.3); }
+@keyframes toastIn { from{opacity:0;transform:translateX(40px)} to{opacity:1;transform:translateX(0)} }
+@keyframes toastOut { to{opacity:0;transform:translateX(40px)} }
+
+/* Gantt block colors */
+.gb-0{background:#00e5ff;color:#000}.gb-1{background:#ff6b35;color:#000}.gb-2{background:#a855f7;color:#fff}
+.gb-3{background:#00ff88;color:#000}.gb-4{background:#ffd32a;color:#000}.gb-5{background:#ff4757;color:#fff}
+.gb-6{background:#3ae374;color:#000}.gb-7{background:#18dcff;color:#000}.gb-8{background:#e84393;color:#fff}
+.gb-9{background:#f9ca24;color:#000}
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════ */
+@media (max-width: 1100px) {
+  .sim-layout { grid-template-columns: 1fr; }
+  .panel-left { position: static; }
+  .stats-grid { grid-template-columns: repeat(2,1fr); }
+}
+
+@media (max-width: 900px) {
+  .hero { flex-direction: column; padding-top: 120px; }
+  .hero-visual { margin: 2rem auto 0; }
+  .terminal-card { width: 100%; }
+  .footer-grid { grid-template-columns: 1fr 1fr; }
+  .charts-row { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .nav-links { 
+    display: none; position: fixed; top: 60px; left: 0; right: 0;
+    background: var(--bg-2); flex-direction: column; 
+    border-bottom: 1px solid var(--border); padding: 1rem;
+    gap: .25rem;
+  }
+  .nav-links.open { display: flex; }
+  .nav-link { padding: .65rem 1rem; border-radius: 8px; }
+  .hamburger { display: flex; }
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .hero-stats { gap: 1.25rem; }
+  .footer-grid { grid-template-columns: 1fr; }
+  .form-row { flex-direction: column; gap: .5rem; }
+  .section { padding: 60px 0; }
+}
+
+@media (max-width: 400px) {
+  .stats-grid { grid-template-columns: 1fr; }
+  .hero-cta { flex-direction: column; }
+}
+
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ NAVBAR ═══════════════ -->
+<nav class="navbar" id="navbar">
+  <div class="nav-container">
+    <a href="#" class="nav-brand">
+      <span class="brand-icon">⬡</span>
+      <span class="brand-text">CPU<em>Sim</em></span>
+    </a>
+
+    <ul class="nav-links" id="navLinks">
+      <li><a href="#hero" class="nav-link active">Home</a></li>
+      <li><a href="#about" class="nav-link">About</a></li>
+      <li><a href="#simulator" class="nav-link">Simulator</a></li>
+      <li><a href="#comparison" class="nav-link">Compare</a></li>
+      <li><a href="#faq" class="nav-link">FAQ</a></li>
+    </ul>
+
+    <div class="nav-actions">
+      <button class="theme-toggle" id="themeToggle" title="Toggle Dark/Light Mode">
+        <span class="theme-icon">🌙</span>
+      </button>
+      <button class="hamburger" id="hamburger" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══════════════ HERO ═══════════════ -->
+<section class="hero" id="hero">
+  <div class="hero-bg">
+    <div class="grid-overlay"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <div class="hero-content">
+    <div class="hero-badge">
+      <span class="pulse-dot"></span> Interactive OS Learning Tool
+    </div>
+    <h1 class="hero-title">
+      CPU Scheduling<br />
+      <em class="hero-accent">Simulator</em>
+    </h1>
+    <p class="hero-subtitle">
+      Master FCFS, SJF, Priority & Round Robin algorithms with real-time
+      Gantt charts, animated step-by-step execution, and detailed statistics.
+    </p>
+    <div class="hero-cta">
+      <a href="#simulator" class="btn btn-primary">
+        <span>Launch Simulator</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </a>
+      <a href="#about" class="btn btn-ghost">Learn Algorithms</a>
+    </div>
+
+    <div class="hero-stats">
+      <div class="hero-stat"><span class="stat-num">5</span><span class="stat-label">Algorithms</span></div>
+      <div class="hero-stat"><span class="stat-num">∞</span><span class="stat-label">Processes</span></div>
+      <div class="hero-stat"><span class="stat-num">PDF</span><span class="stat-label">Export</span></div>
+      <div class="hero-stat"><span class="stat-num">Live</span><span class="stat-label">Gantt Chart</span></div>
+    </div>
+  </div>
+
+  <div class="hero-visual">
+    <div class="terminal-card">
+      <div class="terminal-header">
+        <div class="dot dot-red"></div>
+        <div class="dot dot-yellow"></div>
+        <div class="dot dot-green"></div>
+        <span class="terminal-title">scheduler.os</span>
+      </div>
+      <div class="terminal-body" id="terminalBody">
+        <div class="t-line"><span class="t-prompt">$</span> init scheduler --algo FCFS</div>
+        <div class="t-line"><span class="t-ok">[OK]</span> Process P1 → AT:0 BT:5</div>
+        <div class="t-line"><span class="t-ok">[OK]</span> Process P2 → AT:1 BT:3</div>
+        <div class="t-line"><span class="t-ok">[OK]</span> Process P3 → AT:2 BT:8</div>
+        <div class="t-line"><span class="t-info">▶ Running simulation…</span></div>
+        <div class="t-line"><span class="t-ok">[DONE]</span> Avg WT: 4.33 | Avg TAT: 9.00</div>
+        <div class="t-line t-cursor"><span class="t-prompt">$</span> <span class="cursor-blink">█</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ ABOUT ═══════════════ -->
+<section class="section about-section" id="about">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-tag">// Algorithms</span>
+      <h2 class="section-title">CPU Scheduling Algorithms</h2>
+      <p class="section-subtitle">Understand how the OS decides which process runs next</p>
+    </div>
+
+    <div class="algo-grid" id="algoGrid">
+      <!-- Populated by JS -->
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ SIMULATOR ═══════════════ -->
+<section class="section simulator-section" id="simulator">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-tag">// Simulator</span>
+      <h2 class="section-title">Run Your Simulation</h2>
+      <p class="section-subtitle">Add processes, choose an algorithm, and visualize scheduling</p>
+    </div>
+
+    <div class="sim-layout">
+
+      <!-- LEFT PANEL -->
+      <div class="sim-panel panel-left">
+
+        <!-- Algorithm Selector -->
+        <div class="glass-card">
+          <h3 class="card-title">
+            <span class="card-icon">⚙</span> Configuration
+          </h3>
+          <div class="form-group">
+            <label class="form-label">Scheduling Algorithm</label>
+            <select class="form-control" id="algorithmSelect">
+              <option value="fcfs">FCFS — First Come First Serve</option>
+              <option value="sjf">SJF Non-Preemptive</option>
+              <option value="sjfp">SJF Preemptive (SRTF)</option>
+              <option value="priority">Priority Scheduling</option>
+              <option value="rr">Round Robin</option>
+            </select>
+          </div>
+          <div class="form-group rr-only hidden" id="rrConfig">
+            <label class="form-label">Time Quantum</label>
+            <input type="number" class="form-control" id="timeQuantum" value="2" min="1" max="100" placeholder="Enter time quantum" />
+          </div>
+        </div>
+
+        <!-- Add Process -->
+        <div class="glass-card">
+          <h3 class="card-title">
+            <span class="card-icon">＋</span> Add Process
+          </h3>
+          <div class="process-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Process ID</label>
+                <input type="text" class="form-control" id="pid" placeholder="P1" maxlength="5" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Arrival Time</label>
+                <input type="number" class="form-control" id="arrivalTime" placeholder="0" min="0" />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Burst Time</label>
+                <input type="number" class="form-control" id="burstTime" placeholder="1" min="1" />
+              </div>
+              <div class="form-group priority-only" id="priorityGroup">
+                <label class="form-label">Priority <span class="hint">(lower = higher)</span></label>
+                <input type="number" class="form-control" id="priority" placeholder="1" min="1" />
+              </div>
+            </div>
+            <div class="form-error hidden" id="formError"></div>
+            <div class="form-actions">
+              <button class="btn btn-primary btn-sm" id="addProcessBtn">
+                <span>Add Process</span>
+              </button>
+              <button class="btn btn-ghost btn-sm" id="randomProcessBtn" title="Generate random processes">
+                🎲 Random
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Search/Filter -->
+        <div class="glass-card">
+          <div class="table-toolbar">
+            <h3 class="card-title" style="margin:0">
+              <span class="card-icon">☰</span> Process Table
+              <span class="process-count" id="processCount">0 processes</span>
+            </h3>
+            <input type="text" class="search-input" id="searchInput" placeholder="🔍 Search…" />
+          </div>
+          <div class="table-wrapper">
+            <table class="process-table" id="processTable">
+              <thead>
+                <tr>
+                  <th>PID</th><th>AT</th><th>BT</th><th class="priority-col" id="priorityCol">PR</th><th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="processTableBody">
+                <tr class="empty-row">
+                  <td colspan="5">No processes added yet. Add one above ↑</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-actions">
+            <button class="btn btn-ghost btn-xs" id="undoBtn" disabled title="Undo">↩ Undo</button>
+            <button class="btn btn-ghost btn-xs" id="redoBtn" disabled title="Redo">↪ Redo</button>
+            <button class="btn btn-danger btn-xs" id="resetBtn">🗑 Reset All</button>
+          </div>
+        </div>
+
+        <!-- Simulation Controls -->
+        <div class="glass-card">
+          <h3 class="card-title"><span class="card-icon">▶</span> Simulation Controls</h3>
+          <div class="sim-controls">
+            <button class="btn btn-primary" id="runBtn">
+              <span class="btn-icon">▶</span> Run Simulation
+            </button>
+            <button class="btn btn-accent" id="stepBtn" disabled>
+              <span class="btn-icon">⏭</span> Step
+            </button>
+            <button class="btn btn-ghost" id="autoPlayBtn" disabled>
+              <span class="btn-icon">⚡</span> Auto-Play
+            </button>
+          </div>
+          <div class="speed-control">
+            <label class="form-label">Animation Speed</label>
+            <input type="range" class="speed-slider" id="speedSlider" min="1" max="5" value="3" />
+            <span id="speedLabel">Normal</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT PANEL -->
+      <div class="sim-panel panel-right">
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay hidden" id="loadingOverlay">
+          <div class="loading-spinner"></div>
+          <p>Simulating…</p>
+        </div>
+
+        <!-- Gantt Chart -->
+        <div class="glass-card gantt-card" id="ganttCard">
+          <h3 class="card-title">
+            <span class="card-icon">📊</span> Gantt Chart
+            <span class="algo-badge" id="algoBadge">—</span>
+          </h3>
+          <div class="gantt-container" id="ganttContainer">
+            <div class="gantt-placeholder">
+              <div class="placeholder-icon">⬡</div>
+              <p>Run a simulation to see the Gantt chart</p>
+            </div>
+          </div>
+          <div class="gantt-timeline" id="ganttTimeline"></div>
+        </div>
+
+        <!-- Step Info -->
+        <div class="glass-card step-card hidden" id="stepCard">
+          <h3 class="card-title"><span class="card-icon">🔬</span> Step-by-Step View</h3>
+          <div class="step-info" id="stepInfo">
+            <div class="step-counter">Step <span id="currentStep">0</span> / <span id="totalSteps">0</span></div>
+            <div class="step-detail" id="stepDetail"></div>
+            <div class="step-progress"><div class="step-progress-bar" id="stepProgressBar"></div></div>
+          </div>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="stats-grid" id="statsGrid">
+          <div class="stat-card" id="statWT">
+            <div class="stat-icon">⏱</div>
+            <div class="stat-body">
+              <div class="stat-value">—</div>
+              <div class="stat-name">Avg Waiting Time</div>
+            </div>
+          </div>
+          <div class="stat-card" id="statTAT">
+            <div class="stat-icon">🔄</div>
+            <div class="stat-body">
+              <div class="stat-value">—</div>
+              <div class="stat-name">Avg Turnaround Time</div>
+            </div>
+          </div>
+          <div class="stat-card" id="statCPU">
+            <div class="stat-icon">⚡</div>
+            <div class="stat-body">
+              <div class="stat-value">—</div>
+              <div class="stat-name">CPU Utilization</div>
+            </div>
+          </div>
+          <div class="stat-card" id="statTP">
+            <div class="stat-icon">📈</div>
+            <div class="stat-body">
+              <div class="stat-value">—</div>
+              <div class="stat-name">Throughput</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Results Table -->
+        <div class="glass-card results-card hidden" id="resultsCard">
+          <div class="results-header">
+            <h3 class="card-title" style="margin:0">
+              <span class="card-icon">📋</span> Detailed Results
+            </h3>
+            <div class="results-actions">
+              <button class="btn btn-ghost btn-xs" id="exportPdfBtn">📄 Export PDF</button>
+              <button class="btn btn-ghost btn-xs" id="saveHistoryBtn">💾 Save to History</button>
+            </div>
+          </div>
+          <div class="table-wrapper">
+            <table class="results-table" id="resultsTable">
+              <thead>
+                <tr>
+                  <th>PID</th><th>AT</th><th>BT</th><th>CT</th><th>TAT</th><th>WT</th><th>RT</th>
+                </tr>
+              </thead>
+              <tbody id="resultsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="glass-card chart-card hidden" id="chartCard">
+          <h3 class="card-title"><span class="card-icon">📉</span> Visual Statistics</h3>
+          <div class="charts-row">
+            <div class="chart-wrapper">
+              <canvas id="barChart"></canvas>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="pieChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ HISTORY ═══════════════ -->
+<section class="section history-section" id="history">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-tag">// History</span>
+      <h2 class="section-title">Simulation History</h2>
+      <p class="section-subtitle">Your previous simulation runs, saved locally</p>
+    </div>
+    <div class="history-toolbar">
+      <span id="historyCount">0 saved simulations</span>
+      <button class="btn btn-danger btn-xs" id="clearHistoryBtn">Clear All</button>
+    </div>
+    <div class="history-grid" id="historyGrid">
+      <div class="history-empty">No history yet — run a simulation first!</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ COMPARISON ═══════════════ -->
+<section class="section comparison-section" id="comparison">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-tag">// Comparison</span>
+      <h2 class="section-title">Algorithm Comparison</h2>
+      <p class="section-subtitle">Choose the right algorithm for your use case</p>
+    </div>
+    <div class="table-wrapper comparison-table-wrap">
+      <table class="comparison-table">
+        <thead>
+          <tr>
+            <th>Algorithm</th>
+            <th>Preemptive?</th>
+            <th>Criteria</th>
+            <th>Starvation</th>
+            <th>Overhead</th>
+            <th>Best For</th>
+            <th>Time Complexity</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="algo-tag fcfs">FCFS</span></td>
+            <td><span class="badge no">No</span></td>
+            <td>Arrival Order</td>
+            <td><span class="badge no">No</span></td>
+            <td><span class="badge low">Low</span></td>
+            <td>Batch systems</td>
+            <td><code>O(n log n)</code></td>
+          </tr>
+          <tr>
+            <td><span class="algo-tag sjf">SJF NP</span></td>
+            <td><span class="badge no">No</span></td>
+            <td>Burst Time</td>
+            <td><span class="badge yes">Yes</span></td>
+            <td><span class="badge low">Low</span></td>
+            <td>Short jobs</td>
+            <td><code>O(n log n)</code></td>
+          </tr>
+          <tr>
+            <td><span class="algo-tag sjfp">SRTF</span></td>
+            <td><span class="badge yes">Yes</span></td>
+            <td>Remaining BT</td>
+            <td><span class="badge yes">Yes</span></td>
+            <td><span class="badge high">High</span></td>
+            <td>Interactive</td>
+            <td><code>O(n²)</code></td>
+          </tr>
+          <tr>
+            <td><span class="algo-tag priority">Priority</span></td>
+            <td><span class="badge mixed">Optional</span></td>
+            <td>Priority Value</td>
+            <td><span class="badge yes">Yes</span></td>
+            <td><span class="badge med">Medium</span></td>
+            <td>Real-time OS</td>
+            <td><code>O(n log n)</code></td>
+          </tr>
+          <tr>
+            <td><span class="algo-tag rr">Round Robin</span></td>
+            <td><span class="badge yes">Yes</span></td>
+            <td>Time Quantum</td>
+            <td><span class="badge no">No</span></td>
+            <td><span class="badge med">Medium</span></td>
+            <td>Time-sharing</td>
+            <td><code>O(n)</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ FAQ ═══════════════ -->
+<section class="section faq-section" id="faq">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-tag">// FAQ</span>
+      <h2 class="section-title">Frequently Asked Questions</h2>
+    </div>
+    <div class="faq-list" id="faqList">
+      <!-- Populated by JS -->
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ FOOTER ═══════════════ -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="nav-brand" style="margin-bottom:1rem">
+          <span class="brand-icon">⬡</span>
+          <span class="brand-text">CPU<em>Sim</em></span>
+        </div>
+        <p>An interactive CPU Scheduling Simulator for OS students and educators. Built with vanilla JS, Chart.js, and jsPDF.</p>
+      </div>
+      <div class="footer-links">
+        <h4>Quick Links</h4>
+        <ul>
+          <li><a href="#hero">Home</a></li>
+          <li><a href="#about">Algorithms</a></li>
+          <li><a href="#simulator">Simulator</a></li>
+          <li><a href="#comparison">Comparison</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ul>
+      </div>
+      <div class="footer-links">
+        <h4>Algorithms</h4>
+        <ul>
+          <li><a href="#simulator">FCFS</a></li>
+          <li><a href="#simulator">SJF</a></li>
+          <li><a href="#simulator">SRTF</a></li>
+          <li><a href="#simulator">Priority</a></li>
+          <li><a href="#simulator">Round Robin</a></li>
+        </ul>
+      </div>
+      <div class="footer-links">
+        <h4>Resources</h4>
+        <ul>
+          <li><a href="#">OS Concepts Book</a></li>
+          <li><a href="#">Linux Scheduler</a></li>
+          <li><a href="#">Process Management</a></li>
+          <li><a href="#">GitHub Repo</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2024 CPUSim — Built for OS Education. All simulations run locally in your browser.</p>
+      <div class="social-links">
+        <a href="#" class="social-link" title="GitHub">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        </a>
+        <a href="#" class="social-link" title="Twitter">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+        </a>
+        <a href="#" class="social-link" title="LinkedIn">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+        </a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- Edit Modal -->
+<div class="modal-overlay hidden" id="editModal">
+  <div class="modal glass-card">
+    <div class="modal-header">
+      <h3>Edit Process</h3>
+      <button class="modal-close" id="modalClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Process ID</label>
+          <input type="text" class="form-control" id="editPid" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Arrival Time</label>
+          <input type="number" class="form-control" id="editAT" min="0" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Burst Time</label>
+          <input type="number" class="form-control" id="editBT" min="1" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Priority</label>
+          <input type="number" class="form-control" id="editPR" min="1" />
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" id="cancelEdit">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="confirmEdit">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Notification -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+/* ═══════════════════════════════════════════════
+   CPU Scheduling Simulator — script.js
+   ═══════════════════════════════════════════════ */
+
+"use strict";
+
+// ─────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────
+let processes        = [];          // current process list
+let undoStack        = [];          // undo history
+let redoStack        = [];          // redo history
+let simulationResult = null;        // last simulation result
+let barChart         = null;        // Chart.js bar chart instance
+let pieChart         = null;        // Chart.js pie chart instance
+
+// Step-by-step state
+let ganttBlocks      = [];          // raw gantt segments [{pid,start,end}]
+let stepIndex        = 0;           // current step pointer
+let autoPlayTimer    = null;        // setInterval handle
+
+const SPEED_MAP = { 1: 800, 2: 500, 3: 300, 4: 150, 5: 60 };
+const COLORS    = ['#00e5ff','#ff6b35','#a855f7','#00ff88','#ffd32a','#ff4757','#3ae374','#18dcff','#e84393','#f9ca24'];
+
+// ─────────────────────────────────────────────
+// ALGORITHM INFO (for About section)
+// ─────────────────────────────────────────────
+const ALGO_INFO = [
+  {
+    key:'fcfs', name:'FCFS', full:'First Come First Serve',
+    icon:'🟦', color:'#00e5ff',
+    desc:'Processes are executed in the order they arrive. The simplest non-preemptive algorithm — fair and easy to implement.',
+    tags:['Non-Preemptive','Queue-Based','O(n log n)'],
+    pros:['Simple to implement','No starvation','Fair ordering'],
+    cons:['Convoy effect','High avg waiting time','Not optimal'],
+    useCase:'Batch processing, print queues'
+  },
+  {
+    key:'sjf', name:'SJF', full:'Shortest Job First (Non-Preemptive)',
+    icon:'🟩', color:'#00ff88',
+    desc:'Among all ready processes, the one with the shortest burst time is selected next. Minimizes average waiting time.',
+    tags:['Non-Preemptive','Optimal Avg WT','O(n log n)'],
+    pros:['Minimum avg waiting time','High throughput','No convoy effect'],
+    cons:['Starvation of long jobs','Burst time must be known','Not realistic'],
+    useCase:'Batch systems, compiler optimization'
+  },
+  {
+    key:'sjfp', name:'SRTF', full:'Shortest Remaining Time First (Preemptive SJF)',
+    icon:'🟪', color:'#a855f7',
+    desc:'A preemptive version of SJF. If a new process arrives with a smaller remaining burst time, it preempts the current process.',
+    tags:['Preemptive','Minimum Avg WT','O(n²)'],
+    pros:['Truly optimal waiting time','Good responsiveness','Handles dynamic arrivals'],
+    cons:['High context-switch overhead','Starvation risk','Impractical burst prediction'],
+    useCase:'Interactive systems, time-sharing'
+  },
+  {
+    key:'priority', name:'Priority', full:'Priority Scheduling (Non-Preemptive)',
+    icon:'🟧', color:'#ff6b35',
+    desc:'Each process has a priority number. The CPU is allocated to the highest priority process (lower number = higher priority).',
+    tags:['Non-Preemptive','Priority-Based','O(n log n)'],
+    pros:['Important jobs run first','Flexible priority assignment','Widely used in real OS'],
+    cons:['Starvation of low-priority','Priority inversion','Complex configuration'],
+    useCase:'Real-time OS, kernel scheduling'
+  },
+  {
+    key:'rr', name:'Round Robin', full:'Round Robin',
+    icon:'🟡', color:'#ffd32a',
+    desc:'Each process gets a fixed CPU time slice (quantum). After the slice, the process is preempted and moved to the back of the queue.',
+    tags:['Preemptive','Time-Sharing','O(n)'],
+    pros:['No starvation','Fair share for all','Good for time-sharing'],
+    cons:['Higher context switching','Performance depends on quantum','Avg TAT can be high'],
+    useCase:'General-purpose OS, multitasking, Linux CFS'
+  }
+];
+
+// ─────────────────────────────────────────────
+// FAQ DATA
+// ─────────────────────────────────────────────
+const FAQ_DATA = [
+  {
+    q: 'What is CPU scheduling?',
+    a: 'CPU scheduling is the process by which an operating system decides which process in the ready queue should be allocated the CPU next. It aims to maximize CPU utilization, throughput, and minimize waiting/turnaround times.'
+  },
+  {
+    q: 'What is the difference between preemptive and non-preemptive scheduling?',
+    a: 'In non-preemptive scheduling, once a process gets the CPU it runs until it completes or blocks voluntarily. In preemptive scheduling, the OS can forcibly remove the CPU from a running process (e.g., when a higher priority process arrives or the time quantum expires).'
+  },
+  {
+    q: 'What is Turnaround Time (TAT)?',
+    a: 'Turnaround Time = Completion Time − Arrival Time. It is the total time taken from when a process arrives in the system to when it finishes execution, including waiting and execution time.'
+  },
+  {
+    q: 'What is Waiting Time (WT)?',
+    a: 'Waiting Time = Turnaround Time − Burst Time. It represents the total time a process spends waiting in the ready queue before getting CPU time.'
+  },
+  {
+    q: 'What is Response Time (RT)?',
+    a: 'Response Time = Time of First CPU Allocation − Arrival Time. It measures how quickly a process gets its first response from the CPU, which is important in interactive systems.'
+  },
+  {
+    q: 'Which algorithm gives the minimum average waiting time?',
+    a: 'SJF (Shortest Job First) gives the minimum average waiting time for a given set of non-preemptive processes. SRTF (preemptive SJF) gives the globally minimum average waiting time when considering all arrival times.'
+  },
+  {
+    q: 'What is starvation and how is it prevented?',
+    a: 'Starvation is when a process waits indefinitely because higher-priority or shorter processes keep arriving. It can be prevented using aging — gradually increasing the priority of waiting processes over time. Round Robin also prevents starvation by design.'
+  },
+  {
+    q: 'How does Time Quantum affect Round Robin performance?',
+    a: 'A very small quantum causes too many context switches, degrading performance. A very large quantum makes it behave like FCFS. The optimal quantum is typically 80% of CPU burst times — typically 10–100ms in practice.'
+  }
+];
+
+// ─────────────────────────────────────────────
+// DOM REFS
+// ─────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const qs = sel => document.querySelector(sel);
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  loadTheme();
+  renderAlgoCards();
+  renderFAQ();
+  renderHistory();
+  bindEvents();
+  updateAlgoVisibility();
+  setInterval(updateNavActive, 200);
+});
+
+// ─────────────────────────────────────────────
+// THEME
+// ─────────────────────────────────────────────
+function loadTheme() {
+  const saved = localStorage.getItem('cpusim_theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
+  $('themeToggle').querySelector('.theme-icon').textContent = saved === 'dark' ? '🌙' : '☀';
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  const next    = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('cpusim_theme', next);
+  $('themeToggle').querySelector('.theme-icon').textContent = next === 'dark' ? '🌙' : '☀';
+  if (barChart) rebuildCharts();
+}
+
+// ─────────────────────────────────────────────
+// NAVBAR
+// ─────────────────────────────────────────────
+function bindEvents() {
+  // Navbar
+  $('themeToggle').addEventListener('click', toggleTheme);
+  $('hamburger').addEventListener('click', () => {
+    $('navLinks').classList.toggle('open');
+  });
+  document.querySelectorAll('.nav-link').forEach(link => {
+    link.addEventListener('click', () => $('navLinks').classList.remove('open'));
+  });
+  window.addEventListener('scroll', () => {
+    $('navbar').classList.toggle('scrolled', window.scrollY > 10);
+  });
+
+  // Algorithm select
+  $('algorithmSelect').addEventListener('change', updateAlgoVisibility);
+
+  // Process form
+  $('addProcessBtn').addEventListener('click', addProcess);
+  $('randomProcessBtn').addEventListener('click', addRandomProcesses);
+  ['pid','arrivalTime','burstTime','priority'].forEach(id => {
+    $(id).addEventListener('keydown', e => { if (e.key === 'Enter') addProcess(); });
+    $(id).addEventListener('input', clearFormError);
+  });
+
+  // Table search
+  $('searchInput').addEventListener('input', filterTable);
+
+  // Table actions
+  $('undoBtn').addEventListener('click', undo);
+  $('redoBtn').addEventListener('click', redo);
+  $('resetBtn').addEventListener('click', resetAll);
+
+  // Simulation controls
+  $('runBtn').addEventListener('click', runSimulation);
+  $('stepBtn').addEventListener('click', stepForward);
+  $('autoPlayBtn').addEventListener('click', toggleAutoPlay);
+  $('speedSlider').addEventListener('input', updateSpeed);
+
+  // Results
+  $('exportPdfBtn').addEventListener('click', exportPDF);
+  $('saveHistoryBtn').addEventListener('click', saveToHistory);
+
+  // History
+  $('clearHistoryBtn').addEventListener('click', clearHistory);
+
+  // Modal
+  $('modalClose').addEventListener('click', closeModal);
+  $('cancelEdit').addEventListener('click', closeModal);
+  $('confirmEdit').addEventListener('click', confirmEdit);
+  $('editModal').addEventListener('click', e => {
+    if (e.target === $('editModal')) closeModal();
+  });
+
+  // FAQ
+  $('faqList').addEventListener('click', e => {
+    const question = e.target.closest('.faq-question');
+    if (!question) return;
+    const item = question.closest('.faq-item');
+    item.classList.toggle('open');
+  });
+
+  // Time quantum validation
+  $('timeQuantum').addEventListener('input', () => {
+    const v = parseInt($('timeQuantum').value);
+    if (v < 1) $('timeQuantum').value = 1;
+  });
+}
+
+function updateNavActive() {
+  const sections = document.querySelectorAll('section[id]');
+  const scrollY  = window.scrollY + 100;
+  sections.forEach(sec => {
+    const top = sec.offsetTop, h = sec.offsetHeight;
+    const link = document.querySelector(`.nav-link[href="#${sec.id}"]`);
+    if (link) link.classList.toggle('active', scrollY >= top && scrollY < top + h);
+  });
+}
+
+// ─────────────────────────────────────────────
+// ALGO VISIBILITY
+// ─────────────────────────────────────────────
+function updateAlgoVisibility() {
+  const algo = $('algorithmSelect').value;
+  $('rrConfig').classList.toggle('hidden', algo !== 'rr');
+  $('priorityGroup').classList.toggle('hidden', algo !== 'priority');
+  const table = $('processTable');
+  table.classList.toggle('show-priority', algo === 'priority');
+  $('algoBadge').textContent = algo.toUpperCase().replace('SJF','SJF-NP').replace('SJFP','SRTF').replace('RR','Round Robin').replace('PRIORITY','Priority').replace('FCFS','FCFS');
+}
+
+// ─────────────────────────────────────────────
+// PROCESS MANAGEMENT
+// ─────────────────────────────────────────────
+function addProcess() {
+  const pid  = $('pid').value.trim()    || `P${processes.length + 1}`;
+  const at   = parseInt($('arrivalTime').value);
+  const bt   = parseInt($('burstTime').value);
+  const pr   = parseInt($('priority').value) || 1;
+  const algo = $('algorithmSelect').value;
+
+  // Validation
+  if (!pid) { showFormError('Process ID is required.'); return; }
+  if (pid.length > 5) { showFormError('PID max 5 characters.'); return; }
+  if (processes.find(p => p.pid === pid)) { showFormError(`PID "${pid}" already exists.`); return; }
+  if (isNaN(at) || at < 0) { showFormError('Arrival Time must be ≥ 0.'); return; }
+  if (isNaN(bt) || bt < 1) { showFormError('Burst Time must be ≥ 1.'); return; }
+  if (algo === 'priority' && (isNaN(pr) || pr < 1)) { showFormError('Priority must be ≥ 1.'); return; }
+
+  saveUndo();
+  processes.push({ pid, at, bt, pr, color: COLORS[processes.length % COLORS.length] });
+  clearForm();
+  renderTable();
+  toast(`Process ${pid} added`, 'success');
+  $('pid').focus();
+}
+
+function addRandomProcesses() {
+  saveUndo();
+  const count = Math.floor(Math.random() * 3) + 3;
+  for (let i = 0; i < count; i++) {
+    const idx = processes.length + 1;
+    processes.push({
+      pid: `P${idx}`,
+      at:  Math.floor(Math.random() * 8),
+      bt:  Math.floor(Math.random() * 9) + 1,
+      pr:  Math.floor(Math.random() * 5) + 1,
+      color: COLORS[processes.length % COLORS.length]
+    });
+  }
+  renderTable();
+  toast(`${count} random processes added`, 'info');
+}
+
+function deleteProcess(pid) {
+  saveUndo();
+  processes = processes.filter(p => p.pid !== pid);
+  renderTable();
+  toast(`Process ${pid} removed`, 'info');
+}
+
+let editTarget = null;
+function openEdit(pid) {
+  const p = processes.find(x => x.pid === pid);
+  if (!p) return;
+  editTarget = pid;
+  $('editPid').value = p.pid;
+  $('editAT').value  = p.at;
+  $('editBT').value  = p.bt;
+  $('editPR').value  = p.pr;
+  $('editModal').classList.remove('hidden');
+}
+
+function confirmEdit() {
+  const newPid = $('editPid').value.trim();
+  const at     = parseInt($('editAT').value);
+  const bt     = parseInt($('editBT').value);
+  const pr     = parseInt($('editPR').value);
+  if (!newPid || isNaN(at) || at < 0 || isNaN(bt) || bt < 1) {
+    toast('Invalid values — please check inputs', 'error'); return;
+  }
+  if (newPid !== editTarget && processes.find(p => p.pid === newPid)) {
+    toast(`PID "${newPid}" already exists`, 'error'); return;
+  }
+  saveUndo();
+  const idx = processes.findIndex(p => p.pid === editTarget);
+  if (idx !== -1) {
+    processes[idx] = { ...processes[idx], pid: newPid, at, bt, pr: isNaN(pr) ? 1 : pr };
+  }
+  closeModal(); renderTable();
+  toast(`Process updated`, 'success');
+}
+
+function closeModal() {
+  $('editModal').classList.add('hidden');
+  editTarget = null;
+}
+
+// ─────────────────────────────────────────────
+// TABLE RENDER
+// ─────────────────────────────────────────────
+function renderTable() {
+  const tbody   = $('processTableBody');
+  const algo    = $('algorithmSelect').value;
+  const filter  = $('searchInput').value.toLowerCase();
+
+  $('processCount').textContent = `${processes.length} process${processes.length !== 1 ? 'es' : ''}`;
+
+  if (processes.length === 0) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="5">No processes added yet. Add one above ↑</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = processes.map(p => {
+    const hidden = filter && !p.pid.toLowerCase().includes(filter) ? 'class="filtered-hidden"' : '';
+    return `
+      <tr ${hidden} data-pid="${p.pid}">
+        <td><span style="font-family:var(--font-mono);font-size:.82rem;">${p.pid}</span></td>
+        <td>${p.at}</td>
+        <td>${p.bt}</td>
+        <td class="priority-col">${p.pr}</td>
+        <td>
+          <button class="btn-icon-sm btn-edit" onclick="openEdit('${p.pid}')" title="Edit">✏</button>
+          <button class="btn-icon-sm btn-delete" onclick="deleteProcess('${p.pid}')" title="Delete">🗑</button>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+function filterTable() { renderTable(); }
+
+// ─────────────────────────────────────────────
+// FORM HELPERS
+// ─────────────────────────────────────────────
+function clearForm() {
+  ['pid','arrivalTime','burstTime','priority'].forEach(id => $(id).value = '');
+  clearFormError();
+}
+function showFormError(msg) {
+  $('formError').textContent = msg;
+  $('formError').classList.remove('hidden');
+}
+function clearFormError() { $('formError').classList.add('hidden'); }
+
+// ─────────────────────────────────────────────
+// UNDO / REDO
+// ─────────────────────────────────────────────
+function saveUndo() {
+  undoStack.push(JSON.stringify(processes));
+  if (undoStack.length > 50) undoStack.shift();
+  redoStack = [];
+  updateUndoRedoBtns();
+}
+function undo() {
+  if (!undoStack.length) return;
+  redoStack.push(JSON.stringify(processes));
+  processes = JSON.parse(undoStack.pop());
+  renderTable(); updateUndoRedoBtns();
+  toast('Undo applied', 'info');
+}
+function redo() {
+  if (!redoStack.length) return;
+  undoStack.push(JSON.stringify(processes));
+  processes = JSON.parse(redoStack.pop());
+  renderTable(); updateUndoRedoBtns();
+  toast('Redo applied', 'info');
+}
+function updateUndoRedoBtns() {
+  $('undoBtn').disabled = !undoStack.length;
+  $('redoBtn').disabled = !redoStack.length;
+}
+function resetAll() {
+  if (!processes.length) return;
+  if (!confirm('Reset all processes and results?')) return;
+  saveUndo();
+  processes = [];
+  simulationResult = null; ganttBlocks = [];
+  renderTable();
+  resetResultsView();
+  toast('All data reset', 'info');
+}
+
+// ─────────────────────────────────────────────
+// SCHEDULING ALGORITHMS
+// ─────────────────────────────────────────────
+
+/** FCFS — sort by arrival, execute in order */
+function fcfs(procs) {
+  const sorted = [...procs].sort((a,b) => a.at - b.at || a.pid.localeCompare(b.pid));
+  let time = 0; const gantt = [], results = [];
+  for (const p of sorted) {
+    if (time < p.at) { gantt.push({pid:'IDLE',start:time,end:p.at}); time = p.at; }
+    const start = time;
+    time += p.bt;
+    gantt.push({pid:p.pid, start, end:time});
+    results.push({pid:p.pid, at:p.at, bt:p.bt, ct:time, tat:time-p.at, wt:time-p.at-p.bt, rt:start-p.at, color:p.color});
+  }
+  return {gantt, results};
+}
+
+/** SJF Non-Preemptive */
+function sjf(procs) {
+  const remaining = procs.map(p => ({...p}));
+  let time = 0; const gantt = [], results = [], done = new Set();
+  while (done.size < procs.length) {
+    const ready = remaining.filter(p => p.at <= time && !done.has(p.pid));
+    if (!ready.length) {
+      const next = remaining.filter(p => !done.has(p.pid)).sort((a,b) => a.at-b.at)[0];
+      gantt.push({pid:'IDLE', start:time, end:next.at}); time = next.at; continue;
+    }
+    ready.sort((a,b) => a.bt - b.bt || a.at - b.at);
+    const p = ready[0];
+    const start = time;
+    time += p.bt;
+    done.add(p.pid);
+    gantt.push({pid:p.pid, start, end:time});
+    results.push({pid:p.pid, at:p.at, bt:p.bt, ct:time, tat:time-p.at, wt:time-p.at-p.bt, rt:start-p.at, color:p.color});
+  }
+  return {gantt, results};
+}
+
+/** SRTF (SJF Preemptive) */
+function srtf(procs) {
+  const rem = procs.map(p => ({...p, rem:p.bt, rt:-1}));
+  let time = 0; const gantt = []; const resultMap = {};
+  const totalBT = procs.reduce((s,p) => s + p.bt, 0);
+  let done = 0;
+  while (done < procs.length) {
+    const ready = rem.filter(p => p.at <= time && p.rem > 0);
+    if (!ready.length) {
+      const next = rem.filter(p => p.rem > 0).sort((a,b)=>a.at-b.at)[0];
+      if (next) { gantt.push({pid:'IDLE',start:time,end:next.at}); time=next.at; }
+      continue;
+    }
+    ready.sort((a,b) => a.rem - b.rem || a.at - b.at);
+    const p = ready[0];
+    if (p.rt < 0) p.rt = time - p.at;
+    const last = gantt[gantt.length-1];
+    if (last && last.pid === p.pid) { last.end = time+1; }
+    else { gantt.push({pid:p.pid, start:time, end:time+1}); }
+    p.rem--;
+    time++;
+    if (p.rem === 0) {
+      done++;
+      resultMap[p.pid] = {pid:p.pid, at:p.at, bt:p.bt, ct:time, tat:time-p.at, wt:time-p.at-p.bt, rt:p.rt, color:p.color};
+    }
+  }
+  return {gantt, results:procs.map(p => resultMap[p.pid]).filter(Boolean)};
+}
+
+/** Priority Non-Preemptive (lower number = higher priority) */
+function priorityScheduling(procs) {
+  const remaining = procs.map(p => ({...p}));
+  let time = 0; const gantt = [], results = [], done = new Set();
+  while (done.size < procs.length) {
+    const ready = remaining.filter(p => p.at <= time && !done.has(p.pid));
+    if (!ready.length) {
+      const next = remaining.filter(p => !done.has(p.pid)).sort((a,b) => a.at-b.at)[0];
+      gantt.push({pid:'IDLE', start:time, end:next.at}); time = next.at; continue;
+    }
+    ready.sort((a,b) => a.pr - b.pr || a.at - b.at);
+    const p = ready[0];
+    const start = time; time += p.bt; done.add(p.pid);
+    gantt.push({pid:p.pid, start, end:time});
+    results.push({pid:p.pid, at:p.at, bt:p.bt, ct:time, tat:time-p.at, wt:time-p.at-p.bt, rt:start-p.at, color:p.color});
+  }
+  return {gantt, results};
+}
+
+/** Round Robin */
+function roundRobin(procs, quantum) {
+  const queue  = procs.map(p => ({...p, rem:p.bt, rt:-1})).sort((a,b) => a.at-b.at || a.pid.localeCompare(b.pid));
+  let time = 0; const gantt = [], results = [];
+  const readyQ = []; let i = 0;
+  // seed first processes
+  while (i < queue.length && queue[i].at <= time) readyQ.push(queue[i++]);
+  if (!readyQ.length && queue.length) { time = queue[0].at; readyQ.push(queue[i++]); }
+
+  while (readyQ.length) {
+    const p = readyQ.shift();
+    if (p.rt < 0) p.rt = time - p.at;
+    const run = Math.min(p.rem, quantum);
+    const start = time; time += run; p.rem -= run;
+    gantt.push({pid:p.pid, start, end:time});
+    // enqueue newly arrived processes
+    while (i < queue.length && queue[i].at <= time) readyQ.push(queue[i++]);
+    if (p.rem > 0) readyQ.push(p);
+    else {
+      results.push({pid:p.pid, at:p.at, bt:p.bt, ct:time, tat:time-p.at, wt:time-p.at-p.bt, rt:p.rt, color:p.color});
+    }
+    if (!readyQ.length && i < queue.length) {
+      gantt.push({pid:'IDLE', start:time, end:queue[i].at}); time = queue[i].at; readyQ.push(queue[i++]);
+    }
+  }
+  return {gantt, results};
+}
+
+// ─────────────────────────────────────────────
+// RUN SIMULATION
+// ─────────────────────────────────────────────
+function runSimulation() {
+  if (processes.length === 0) { toast('Add at least one process first', 'error'); return; }
+  stopAutoPlay();
+  const algo = $('algorithmSelect').value;
+  const quantum = parseInt($('timeQuantum').value) || 2;
+
+  $('loadingOverlay').classList.remove('hidden');
+
+  setTimeout(() => {
+    let result;
+    if      (algo === 'fcfs')     result = fcfs(processes);
+    else if (algo === 'sjf')      result = sjf(processes);
+    else if (algo === 'sjfp')     result = srtf(processes);
+    else if (algo === 'priority') result = priorityScheduling(processes);
+    else if (algo === 'rr')       result = roundRobin(processes, quantum);
+    else return;
+
+    simulationResult = result;
+    ganttBlocks      = result.gantt;
+    stepIndex        = 0;
+
+    $('loadingOverlay').classList.add('hidden');
+    renderFullGantt(result.gantt);
+    renderResultsTable(result.results);
+    renderStats(result);
+    buildCharts(result.results);
+    updateAlgoVisibility();
+
+    // Enable step / autoplay
+    $('stepBtn').disabled     = false;
+    $('autoPlayBtn').disabled = false;
+    $('stepCard').classList.remove('hidden');
+    updateStepCard();
+    toast('Simulation complete!', 'success');
+  }, 350);
+}
+
+// ─────────────────────────────────────────────
+// GANTT CHART RENDER
+// ─────────────────────────────────────────────
+function renderFullGantt(blocks) {
+  const container  = $('ganttContainer');
+  const timeline   = $('ganttTimeline');
+  if (!blocks.length) return;
+
+  const totalTime = blocks[blocks.length-1].end;
+  const UNIT      = 36; // px per time unit (base)
+  const scale     = Math.max(1, Math.min(4, 600 / (totalTime * UNIT + 1)));
+
+  // build pid→colorIndex map
+  const pidMap = {};
+  let colorIdx = 0;
+  blocks.forEach(b => {
+    if (b.pid !== 'IDLE' && !(b.pid in pidMap)) pidMap[b.pid] = colorIdx++;
+  });
+
+  // Gantt row
+  const row = document.createElement('div');
+  row.className = 'gantt-row';
+
+  blocks.forEach(b => {
+    const width = Math.max(24, (b.end - b.start) * UNIT * scale);
+    const div   = document.createElement('div');
+    div.className = 'gantt-block' + (b.pid === 'IDLE' ? ' idle-block' : ` gb-${pidMap[b.pid] % 10}`);
+    div.style.width  = `${width}px`;
+    div.style.flexShrink = '0';
+    div.innerHTML = `
+      <span class="block-label">${b.pid === 'IDLE' ? '·' : b.pid}</span>
+      <div class="gantt-block-tooltip">${b.pid} [${b.start}→${b.end}] (${b.end-b.start}u)</div>`;
+    row.appendChild(div);
+  });
+
+  // Timeline ticks
+  timeline.innerHTML = '';
+  for (let t = 0; t <= totalTime; t++) {
+    const tick = document.createElement('div');
+    tick.className = 'gantt-tick';
+    tick.style.width = `${UNIT * scale}px`;
+    tick.innerHTML = `<div class="gantt-tick-mark"></div><span>${t}</span>`;
+    timeline.appendChild(tick);
+  }
+
+  container.innerHTML = '';
+  container.appendChild(row);
+}
+
+/** Render gantt incrementally up to blockIndex */
+function renderPartialGantt(upTo) {
+  const partial = ganttBlocks.slice(0, upTo + 1);
+  renderFullGantt(partial);
+}
+
+// ─────────────────────────────────────────────
+// STEP MODE
+// ─────────────────────────────────────────────
+function updateStepCard() {
+  const total = ganttBlocks.length;
+  $('currentStep').textContent = stepIndex;
+  $('totalSteps').textContent  = total;
+  $('stepProgressBar').style.width = total ? `${(stepIndex / total) * 100}%` : '0%';
+
+  if (stepIndex > 0) {
+    const b   = ganttBlocks[stepIndex-1];
+    const dur = b.end - b.start;
+    $('stepDetail').innerHTML = b.pid === 'IDLE'
+      ? `<span style="color:var(--text-dim)">⏸ CPU Idle</span> from <b>${b.start}</b> to <b>${b.end}</b> (${dur} unit${dur>1?'s':''})`
+      : `<span style="color:var(--cyan)">▶ ${b.pid}</span> running from <b>${b.start}</b> to <b>${b.end}</b> (${dur} unit${dur>1?'s':''})`;
+  } else {
+    $('stepDetail').textContent = 'Press Step or Auto-Play to begin';
+  }
+}
+
+function stepForward() {
+  if (!ganttBlocks.length) return;
+  if (stepIndex < ganttBlocks.length) {
+    stepIndex++;
+    renderPartialGantt(stepIndex - 1);
+    updateStepCard();
+  }
+  if (stepIndex >= ganttBlocks.length) stopAutoPlay();
+}
+
+function toggleAutoPlay() {
+  if (autoPlayTimer) { stopAutoPlay(); return; }
+  if (stepIndex >= ganttBlocks.length) { stepIndex = 0; updateStepCard(); }
+  const speed = SPEED_MAP[$('speedSlider').value] || 300;
+  $('autoPlayBtn').innerHTML = '<span class="btn-icon">⏹</span> Stop';
+  autoPlayTimer = setInterval(() => {
+    stepForward();
+    if (stepIndex >= ganttBlocks.length) stopAutoPlay();
+  }, speed);
+}
+
+function stopAutoPlay() {
+  if (autoPlayTimer) { clearInterval(autoPlayTimer); autoPlayTimer = null; }
+  $('autoPlayBtn').innerHTML = '<span class="btn-icon">⚡</span> Auto-Play';
+}
+
+function updateSpeed() {
+  const labels = {1:'Very Slow',2:'Slow',3:'Normal',4:'Fast',5:'Turbo'};
+  $('speedLabel').textContent = labels[$('speedSlider').value];
+  if (autoPlayTimer) { stopAutoPlay(); toggleAutoPlay(); } // restart at new speed
+}
+
+// ─────────────────────────────────────────────
+// RESULTS TABLE
+// ─────────────────────────────────────────────
+function renderResultsTable(results) {
+  const tbody = $('resultsTableBody');
+  tbody.innerHTML = results.map(r => `
+    <tr>
+      <td><span style="font-family:var(--font-mono);font-size:.82rem;">${r.pid}</span></td>
+      <td>${r.at}</td>
+      <td>${r.bt}</td>
+      <td class="ct-cell">${r.ct}</td>
+      <td class="tat-cell">${r.tat}</td>
+      <td class="wt-cell">${r.wt}</td>
+      <td class="rt-cell">${r.rt}</td>
+    </tr>`).join('');
+  $('resultsCard').classList.remove('hidden');
+}
+
+// ─────────────────────────────────────────────
+// STATISTICS
+// ─────────────────────────────────────────────
+function renderStats(result) {
+  const { results, gantt } = result;
+  const n   = results.length;
+  const avgWT  = (results.reduce((s,r)=>s+r.wt,0)/n).toFixed(2);
+  const avgTAT = (results.reduce((s,r)=>s+r.tat,0)/n).toFixed(2);
+  const totalTime  = gantt[gantt.length-1].end;
+  const idleTime   = gantt.filter(b=>b.pid==='IDLE').reduce((s,b)=>s+(b.end-b.start),0);
+  const cpuUtil    = (((totalTime - idleTime) / totalTime) * 100).toFixed(1);
+  const throughput = (n / totalTime).toFixed(3);
+
+  animateStatCard('statWT', avgWT, 'Avg Waiting Time');
+  animateStatCard('statTAT', avgTAT, 'Avg Turnaround Time');
+  animateStatCard('statCPU', `${cpuUtil}%`, 'CPU Utilization');
+  animateStatCard('statTP', `${throughput}/u`, 'Throughput');
+}
+
+function animateStatCard(id, value, label) {
+  const card = $(id);
+  const valEl = card.querySelector('.stat-value');
+  valEl.textContent = '…';
+  setTimeout(() => { valEl.textContent = value; }, 300);
+}
+
+// ─────────────────────────────────────────────
+// CHARTS (Chart.js)
+// ─────────────────────────────────────────────
+function buildCharts(results) {
+  $('chartCard').classList.remove('hidden');
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const gridColor  = isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)';
+  const labelColor = isDark ? '#7b82a0' : '#555e80';
+
+  const labels = results.map(r => r.pid);
+  const wtData  = results.map(r => r.wt);
+  const tatData = results.map(r => r.tat);
+  const colors  = results.map(r => r.color || COLORS[0]);
+
+  // Destroy old
+  if (barChart) { barChart.destroy(); barChart = null; }
+  if (pieChart) { pieChart.destroy(); pieChart = null; }
+
+  // Bar chart — WT vs TAT
+  const barCtx = document.getElementById('barChart').getContext('2d');
+  barChart = new Chart(barCtx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label:'Waiting Time',      data:wtData,  backgroundColor:'rgba(0,229,255,.7)',  borderColor:'#00e5ff', borderWidth:1.5, borderRadius:4 },
+        { label:'Turnaround Time',   data:tatData, backgroundColor:'rgba(255,107,53,.7)', borderColor:'#ff6b35', borderWidth:1.5, borderRadius:4 }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{ color:labelColor, font:{family:'Space Mono',size:11} } }, title:{ display:true, text:'WT & TAT per Process', color:labelColor, font:{family:'Space Mono',size:12} } },
+      scales: {
+        x:{ ticks:{color:labelColor}, grid:{color:gridColor} },
+        y:{ ticks:{color:labelColor}, grid:{color:gridColor}, beginAtZero:true }
+      }
+    }
+  });
+
+  // Pie chart — burst time distribution
+  const pieCtx = document.getElementById('pieChart').getContext('2d');
+  pieChart = new Chart(pieCtx, {
+    type: 'doughnut',
+    data: {
+      labels: results.map(r => `${r.pid} (BT:${r.bt})`),
+      datasets:[{ data:results.map(r=>r.bt), backgroundColor:colors, borderColor:'transparent', borderWidth:2 }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ position:'right', labels:{color:labelColor, font:{family:'Space Mono',size:10}, boxWidth:12 } },
+        title:{ display:true, text:'Burst Time Distribution', color:labelColor, font:{family:'Space Mono',size:12} }
+      }
+    }
+  });
+}
+
+function rebuildCharts() {
+  if (simulationResult) buildCharts(simulationResult.results);
+}
+
+// ─────────────────────────────────────────────
+// RESET RESULTS VIEW
+// ─────────────────────────────────────────────
+function resetResultsView() {
+  $('ganttContainer').innerHTML = `<div class="gantt-placeholder"><div class="placeholder-icon">⬡</div><p>Run a simulation to see the Gantt chart</p></div>`;
+  $('ganttTimeline').innerHTML = '';
+  $('resultsCard').classList.add('hidden');
+  $('chartCard').classList.add('hidden');
+  $('stepCard').classList.add('hidden');
+  ['statWT','statTAT','statCPU','statTP'].forEach(id => {
+    $(id).querySelector('.stat-value').textContent = '—';
+  });
+  $('stepBtn').disabled = $('autoPlayBtn').disabled = true;
+}
+
+// ─────────────────────────────────────────────
+// PDF EXPORT (jsPDF)
+// ─────────────────────────────────────────────
+function exportPDF() {
+  if (!simulationResult) { toast('Run a simulation first', 'error'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const algo = $('algorithmSelect').options[$('algorithmSelect').selectedIndex].text;
+  const date = new Date().toLocaleString();
+
+  // Header
+  doc.setFillColor(10,12,20);
+  doc.rect(0,0,210,40,'F');
+  doc.setTextColor(0,229,255); doc.setFontSize(20); doc.setFont('courier','bold');
+  doc.text('CPU Scheduling Simulator', 105, 18, {align:'center'});
+  doc.setFontSize(10); doc.setFont('courier','normal'); doc.setTextColor(123,130,160);
+  doc.text(`Algorithm: ${algo}   |   ${date}`, 105, 28, {align:'center'});
+
+  // Stats
+  const r = simulationResult.results;
+  const avgWT  = (r.reduce((s,x)=>s+x.wt,0)/r.length).toFixed(2);
+  const avgTAT = (r.reduce((s,x)=>s+x.tat,0)/r.length).toFixed(2);
+  const totalTime = simulationResult.gantt[simulationResult.gantt.length-1].end;
+  const idleTime  = simulationResult.gantt.filter(b=>b.pid==='IDLE').reduce((s,b)=>s+(b.end-b.start),0);
+  const cpuUtil   = (((totalTime-idleTime)/totalTime)*100).toFixed(1);
+  const tp = (r.length/totalTime).toFixed(3);
+
+  doc.setTextColor(0,0,0); doc.setFontSize(10); doc.setFont('helvetica','normal');
+  doc.text(`Avg Waiting Time: ${avgWT}    Avg TAT: ${avgTAT}    CPU Utilization: ${cpuUtil}%    Throughput: ${tp}/unit`, 14, 50);
+
+  // Results table
+  doc.autoTable({
+    startY: 58,
+    head: [['PID','Arrival','Burst','Completion','TAT','Waiting','Response']],
+    body: r.map(x => [x.pid, x.at, x.bt, x.ct, x.tat, x.wt, x.rt]),
+    styles: { font:'courier', fontSize:9 },
+    headStyles: { fillColor:[0,229,255], textColor:[10,12,20] },
+    alternateRowStyles: { fillColor:[240,242,250] }
+  });
+
+  // Gantt text
+  let y = doc.lastAutoTable.finalY + 12;
+  doc.setFont('helvetica','bold'); doc.setFontSize(11);
+  doc.text('Gantt Chart Sequence:', 14, y); y += 8;
+  doc.setFont('courier','normal'); doc.setFontSize(8);
+  const seq = simulationResult.gantt.map(b=>`[${b.pid} ${b.start}-${b.end}]`).join('  ');
+  doc.text(seq, 14, y, {maxWidth: 182});
+
+  doc.save(`CPU_Scheduling_${algo.replace(/\s+/g,'_')}_${Date.now()}.pdf`);
+  toast('PDF exported!', 'success');
+}
+
+// ─────────────────────────────────────────────
+// HISTORY (localStorage)
+// ─────────────────────────────────────────────
+function saveToHistory() {
+  if (!simulationResult) { toast('Run a simulation first', 'error'); return; }
+  const history = getHistory();
+  const algo = $('algorithmSelect').options[$('algorithmSelect').selectedIndex].text;
+  const r = simulationResult.results;
+  const avgWT  = (r.reduce((s,x)=>s+x.wt,0)/r.length).toFixed(2);
+  const avgTAT = (r.reduce((s,x)=>s+x.tat,0)/r.length).toFixed(2);
+  const entry = {
+    id: Date.now(),
+    algo,
+    date: new Date().toLocaleString(),
+    processes: [...processes],
+    results: r,
+    gantt: simulationResult.gantt,
+    avgWT, avgTAT,
+    n: r.length
+  };
+  history.unshift(entry);
+  localStorage.setItem('cpusim_history', JSON.stringify(history.slice(0,20)));
+  renderHistory();
+  toast('Saved to history!', 'success');
+}
+
+function getHistory() {
+  try { return JSON.parse(localStorage.getItem('cpusim_history') || '[]'); }
+  catch { return []; }
+}
+
+function renderHistory() {
+  const history = getHistory();
+  const grid = $('historyGrid');
+  $('historyCount').textContent = `${history.length} saved simulation${history.length!==1?'s':''}`;
+  if (!history.length) {
+    grid.innerHTML = '<div class="history-empty">No history yet — run a simulation first!</div>';
+    return;
+  }
+  grid.innerHTML = history.map((h,i) => `
+    <div class="history-card" style="animation-delay:${i*.05}s">
+      <div class="history-card-header">
+        <span class="history-card-algo">${h.algo}</span>
+        <span class="history-card-date">${h.date}</span>
+      </div>
+      <div class="history-card-stats">
+        <div class="hstat"><span>Processes: </span>${h.n}</div>
+        <div class="hstat"><span>Avg WT: </span>${h.avgWT}</div>
+        <div class="hstat"><span>Avg TAT: </span>${h.avgTAT}</div>
+      </div>
+      <div class="history-card-actions">
+        <button class="btn btn-ghost btn-xs" onclick="loadHistory(${h.id})">📂 Load</button>
+        <button class="btn btn-danger btn-xs" onclick="deleteHistory(${h.id})">🗑 Delete</button>
+      </div>
+    </div>`).join('');
+}
+
+function loadHistory(id) {
+  const history = getHistory();
+  const entry   = history.find(h => h.id === id);
+  if (!entry) return;
+  saveUndo();
+  processes = entry.processes;
+  simulationResult = { results: entry.results, gantt: entry.gantt };
+  ganttBlocks = entry.gantt;
+  stepIndex = 0;
+  renderTable();
+  renderFullGantt(entry.gantt);
+  renderResultsTable(entry.results);
+  renderStats(simulationResult);
+  buildCharts(entry.results);
+  $('stepBtn').disabled = $('autoPlayBtn').disabled = false;
+  $('stepCard').classList.remove('hidden');
+  updateStepCard();
+  window.location.hash = '#simulator';
+  document.getElementById('simulator').scrollIntoView({behavior:'smooth'});
+  toast(`Loaded "${entry.algo}" simulation`, 'info');
+}
+
+function deleteHistory(id) {
+  const history = getHistory().filter(h => h.id !== id);
+  localStorage.setItem('cpusim_history', JSON.stringify(history));
+  renderHistory();
+  toast('Entry deleted', 'info');
+}
+
+function clearHistory() {
+  if (!confirm('Clear all simulation history?')) return;
+  localStorage.removeItem('cpusim_history');
+  renderHistory();
+  toast('History cleared', 'info');
+}
+
+// ─────────────────────────────────────────────
+// ALGO CARDS (About Section)
+// ─────────────────────────────────────────────
+function renderAlgoCards() {
+  const grid = $('algoGrid');
+  grid.innerHTML = ALGO_INFO.map((a,i) => `
+    <div class="algo-card" style="animation-delay:${i*.1}s">
+      <div class="algo-card-header">
+        <div class="algo-card-icon" style="background:${a.color}22;color:${a.color}">${a.icon}</div>
+        <div>
+          <div class="algo-card-name" style="color:${a.color}">${a.name}</div>
+          <div class="algo-card-full">${a.full}</div>
+        </div>
+      </div>
+      <p class="algo-card-desc">${a.desc}</p>
+      <div class="algo-card-meta">
+        ${a.tags.map(t => `<span class="meta-tag">${t}</span>`).join('')}
+      </div>
+      <div class="algo-pros-cons">
+        <div class="pros">
+          <h5>✓ Pros</h5>
+          <ul>${a.pros.map(p => `<li>${p}</li>`).join('')}</ul>
+        </div>
+        <div class="cons">
+          <h5>✗ Cons</h5>
+          <ul>${a.cons.map(c => `<li>${c}</li>`).join('')}</ul>
+        </div>
+      </div>
+      <div style="margin-top:.75rem;font-size:.78rem;color:var(--text-dim)">
+        <span style="font-family:var(--font-mono)">Use case:</span> ${a.useCase}
+      </div>
+    </div>`).join('');
+}
+
+// ─────────────────────────────────────────────
+// FAQ
+// ─────────────────────────────────────────────
+function renderFAQ() {
+  $('faqList').innerHTML = FAQ_DATA.map((f,i) => `
+    <div class="faq-item" style="animation-delay:${i*.05}s">
+      <div class="faq-question">
+        ${f.q}
+        <span class="faq-arrow">▶</span>
+      </div>
+      <div class="faq-answer">${f.a}</div>
+    </div>`).join('');
+}
+
+// ─────────────────────────────────────────────
+// TOAST
+// ─────────────────────────────────────────────
+function toast(msg, type='info') {
+  const icons = { success:'✅', error:'❌', info:'ℹ️' };
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span>${icons[type]||'ℹ️'}</span>${msg}`;
+  $('toastContainer').appendChild(el);
+  setTimeout(() => el.remove(), 2800);
+}
+
+</script>
+</body>
+</html>
